@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Canva Studio - Mobile Responsive LIFO Canvas</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&family=Playfair+Display:wght@700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;700&display=swap');
+        
+        body { font-family: 'Plus Jakarta Sans', sans-serif; touch-action: manipulation; }
+        
+        .canva-artboard {
+            background-color: #ffffff;
+            background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+            background-size: 20px 20px;
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+            touch-action: none;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.95) translateY(4px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .animate-pop {
+            animation: popIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen w-screen flex flex-col overflow-hidden font-sans selection:bg-purple-500 selection:text-white">
+
+    <!-- 1. RESPONSIVE TOP HEADER BAR -->
+    <header class="bg-slate-900 text-white px-3 sm:px-4 py-2 flex justify-between items-center z-50 shrink-0 shadow-md min-h-[48px]">
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-cyan-400 via-purple-600 to-indigo-600 flex items-center justify-center text-white font-black text-sm sm:text-base shadow-sm shrink-0">
+                <i class="fa-solid fa-paintbrush"></i>
+            </div>
+            <div class="hidden sm:block">
+                <h1 class="text-xs sm:text-sm font-bold text-white tracking-tight leading-tight">Canva Studio</h1>
+                <p class="text-[9px] sm:text-[10px] text-slate-400">Responsive LIFO Canvas</p>
+            </div>
+        </div>
+
+        <!-- Header Actions: Icons on mobile, full buttons on desktop -->
+        <div class="flex items-center space-x-1.5 sm:space-x-2">
+            <!-- Save Project File -->
+            <button onclick="saveProjectFile()" title="Save Project"
+                class="bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-solid fa-floppy-disk text-xs"></i>
+                <span class="hidden md:inline">Save</span>
+            </button>
+
+            <!-- Load Project File -->
+            <label title="Open Project" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <i class="fa-solid fa-folder-open text-xs"></i>
+                <span class="hidden md:inline">Open</span>
+                <input type="file" id="loadProjectInput" accept=".json" class="hidden" onchange="loadProjectFile(event)">
+            </label>
+
+            <!-- Download PNG -->
+            <button onclick="downloadCanvasImage()" title="Download PNG"
+                class="bg-purple-600 hover:bg-purple-500 text-white p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-xs cursor-pointer">
+                <i class="fa-solid fa-download text-xs"></i>
+                <span class="hidden md:inline">Download</span>
+            </button>
+
+            <div class="h-4 w-px bg-slate-700 my-auto"></div>
+
+            <!-- Undo / Redo -->
+            <button onclick="undo()" id="undoBtn" disabled title="Undo (Ctrl+Z)"
+                class="w-7 h-7 sm:w-8 sm:h-8 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white rounded-lg flex items-center justify-center transition cursor-pointer disabled:cursor-not-allowed">
+                <i class="fa-solid fa-arrow-rotate-left text-xs"></i>
+            </button>
+
+            <button onclick="redo()" id="redoBtn" disabled title="Redo (Ctrl+Y)"
+                class="w-7 h-7 sm:w-8 sm:h-8 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white rounded-lg flex items-center justify-center transition cursor-pointer disabled:cursor-not-allowed">
+                <i class="fa-solid fa-arrow-rotate-right text-xs"></i>
+            </button>
+
+            <div class="h-4 w-px bg-slate-700 my-auto"></div>
+
+            <button onclick="clearCanvas()" title="Reset Canvas" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. MAIN WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden min-h-0 w-full relative">
+
+        <!-- A. LEFT NAVIGATION SIDEBAR -->
+        <aside class="w-12 sm:w-16 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-2 sm:py-3 space-y-2 sm:space-y-3 shrink-0 z-40">
+            <button onclick="switchTab('pointer')" id="tab-pointer" class="nav-tab text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1">
+                <i class="fa-solid fa-arrow-pointer text-base"></i>
+                <span class="text-[8px] sm:text-[9px] font-bold">Select</span>
+            </button>
+
+            <button onclick="switchTab('draw')" id="tab-draw" class="nav-tab text-slate-400 hover:text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1">
+                <i class="fa-solid fa-pen-nib text-base"></i>
+                <span class="text-[8px] sm:text-[9px] font-bold">Draw</span>
+            </button>
+
+            <button onclick="switchTab('elements')" id="tab-elements" class="nav-tab text-slate-400 hover:text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1">
+                <i class="fa-solid fa-shapes text-base"></i>
+                <span class="text-[8px] sm:text-[9px] font-bold">Shapes</span>
+            </button>
+
+            <button onclick="switchTab('text')" id="tab-text" class="nav-tab text-slate-400 hover:text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1">
+                <i class="fa-solid fa-font text-base"></i>
+                <span class="text-[8px] sm:text-[9px] font-bold">Text</span>
+            </button>
+
+            <button onclick="switchTab('uploads')" id="tab-uploads" class="nav-tab text-slate-400 hover:text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1">
+                <i class="fa-solid fa-image text-base"></i>
+                <span class="text-[8px] sm:text-[9px] font-bold">Uploads</span>
+            </button>
+
+            <div class="flex-1"></div>
+
+            <button onclick="toggleStackInspector()" title="Toggle LIFO Stack Inspector" class="text-amber-400 hover:text-amber-300 flex flex-col items-center space-y-0.5 transition w-full py-1 border-t border-slate-800 pt-2">
+                <i class="fa-solid fa-layer-group text-base"></i>
+                <span class="text-[7px] sm:text-[8px] font-bold">Stack UI</span>
+            </button>
+        </aside>
+
+        <!-- B. RESPONSIVE TOOL CONFIGURATION DRAWER (OFF-CANVAS OVERLAY ON MOBILE) -->
+        <div id="toolDrawer" class="absolute md:relative left-12 md:left-0 top-0 bottom-0 w-48 sm:w-56 bg-white border-r border-slate-200 p-3 overflow-y-auto shrink-0 flex flex-col justify-between z-30 shadow-xl md:shadow-none transition-all duration-200">
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <div id="drawerHeader">
+                        <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider">Pointer Tool</h3>
+                        <p class="text-[10px] text-slate-500">Select, move, or edit objects.</p>
+                    </div>
+                    <button onclick="toggleDrawerMobile()" class="md:hidden text-slate-400 hover:text-slate-600 p-1">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <div id="drawerOptions" class="space-y-2">
+                    <div class="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                        <i class="fa-solid fa-arrows-up-down-left-right text-purple-600 text-lg mb-0.5"></i>
+                        <p class="text-[11px] font-bold text-purple-900">Select & Resize Active</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Color Swatch & Stroke Settings -->
+            <div class="pt-2.5 border-t border-slate-200 space-y-2">
+                <label class="text-[10px] sm:text-[11px] font-extrabold text-slate-700 block">Color & Stroke Settings</label>
+                <div class="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                    <input type="color" id="colorPicker" value="#7d2ae8" class="w-6 h-6 sm:w-7 sm:h-7 rounded-lg cursor-pointer border-0 bg-transparent shrink-0">
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-800 block leading-none" id="colorHex">#7d2ae8</span>
+                        <span class="text-[8px] text-slate-400">Color swatch</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between text-[10px] text-slate-700 font-bold">
+                        <span>Stroke / Size</span>
+                        <span id="sizeVal" class="font-mono text-purple-600">5px</span>
+                    </div>
+                    <input type="range" id="sizePicker" min="2" max="40" value="5" class="w-full accent-purple-600 cursor-pointer">
+                </div>
+            </div>
+        </div>
+
+        <!-- C. CENTER ARTBOARD WORKSPACE -->
+        <main class="flex-1 bg-slate-100 p-2 sm:p-3 flex flex-col justify-between items-center overflow-hidden relative min-w-0">
+            
+            <!-- Floating Contextual Toolbars -->
+            <div class="flex flex-wrap items-center justify-between w-full max-w-2xl gap-1.5 z-20 shrink-0">
+                <div class="flex items-center space-x-1.5">
+                    <button onclick="toggleDrawerMobile()" class="md:hidden bg-white border border-slate-200 text-purple-600 px-2 py-1 rounded-lg text-xs font-bold shadow-xs flex items-center space-x-1">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Tools</span>
+                    </button>
+
+                    <div class="bg-white border border-slate-200 rounded-xl px-2.5 py-1 flex items-center space-x-1.5 shadow-xs">
+                        <i class="fa-solid fa-pen-ruler text-purple-600 text-xs"></i>
+                        <span class="text-[11px] font-bold text-slate-700">Tool: <strong id="activeToolName" class="text-purple-600">Pointer</strong></span>
+                    </div>
+                </div>
+
+                <!-- Typography Toolbar -->
+                <div id="textFormattingBar" class="hidden bg-white border border-slate-200 rounded-xl px-2 py-0.5 flex items-center space-x-1 shadow-xs text-xs">
+                    <select id="fontFamilySelect" onchange="updateSelectedTextFont()" class="bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5 font-medium text-slate-700 text-[11px]">
+                        <option value="Plus Jakarta Sans">Plus Jakarta</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Playfair Display">Playfair</option>
+                        <option value="Fira Code">Fira Code</option>
+                    </select>
+                    <button onclick="toggleTextBold()" id="boldBtn" class="px-1.5 py-0.5 rounded font-bold hover:bg-slate-100 text-slate-700">B</button>
+                    <button onclick="toggleTextItalic()" id="italicBtn" class="px-1.5 py-0.5 rounded italic hover:bg-slate-100 text-slate-700">I</button>
+                    <button onclick="editSelectedTextContent()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold text-[11px] transition">Edit</button>
+                </div>
+
+                <!-- Layer Arrangement Toolbar -->
+                <div id="layerArrangeBar" class="hidden bg-white border border-slate-200 rounded-xl px-1.5 py-0.5 flex items-center space-x-0.5 shadow-xs text-xs">
+                    <button onclick="arrangeLayer('forward')" title="Bring Forward" class="px-1.5 py-0.5 rounded hover:bg-purple-50 text-purple-600 font-bold"><i class="fa-solid fa-arrow-up text-xs"></i></button>
+                    <button onclick="arrangeLayer('backward')" title="Send Backward" class="px-1.5 py-0.5 rounded hover:bg-purple-50 text-purple-600 font-bold"><i class="fa-solid fa-arrow-down text-xs"></i></button>
+                    <button onclick="deleteSelectedObject()" title="Delete Object" class="px-1.5 py-0.5 rounded hover:bg-rose-50 text-rose-500 font-bold"><i class="fa-solid fa-trash text-xs"></i></button>
+                </div>
+            </div>
+
+            <!-- Auto-Fitting Responsive Canvas Container -->
+            <div id="canvasContainer" class="relative rounded-2xl border-2 border-slate-300 overflow-hidden my-auto w-full flex-1 max-h-[calc(100%-100px)] flex items-center justify-center min-h-[160px]">
+                <canvas id="paintCanvas" class="canva-artboard cursor-default block max-w-full max-h-full object-contain"></canvas>
+            </div>
+
+            <!-- Multi-Page Slide Dock -->
+            <div class="bg-white border border-slate-200 rounded-xl px-2.5 py-1 flex items-center space-x-2 shadow-xs shrink-0 z-20 max-w-full overflow-x-auto">
+                <div id="pagesDock" class="flex items-center space-x-1.5">
+                    <!-- Pages rendered dynamically -->
+                </div>
+                <div class="h-3 w-px bg-slate-200 mx-0.5"></div>
+                <button onclick="addNewPage()" title="Add New Page" class="bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 px-2 py-0.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 shrink-0">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span class="text-[11px]">Page</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- D. TOGGLEABLE LIFO STACK INSPECTOR -->
+        <aside id="stackInspectorPanel" class="w-56 sm:w-64 bg-slate-900 border-l border-slate-800 p-3 flex flex-col shrink-0 z-30 transition-all hidden">
+            <div class="flex justify-between items-center mb-2 border-b border-slate-800 pb-2">
+                <h2 class="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center space-x-1">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span>Undo Stack</span>
+                </h2>
+                <span id="topBadge" class="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold">Top: 0</span>
+            </div>
+
+            <div id="stackInspector" class="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl p-2 flex flex-col space-y-2 overflow-y-auto">
+                <p class="text-xs text-slate-500 italic text-center py-20">Stack empty.</p>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- 3. APPLICATION LOGIC WITH TOUCH DRAG/RESIZE & LIFO STACK ENGINE -->
+    <script>
+        const canvas = document.getElementById('paintCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+
+        let pages = [{ id: 1, objects: [], undoStack: [], redoStack: [] }];
+        let currentPageId = 1;
+
+        let activeTab = 'pointer';
+        let activeMode = 'pointer';
+        let activeShape = 'rect';
+        
+        let selectedObjectIndex = null;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandleType = null;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let startX = 0, startY = 0;
+
+        let isDrawing = false;
+        let currentDrawPath = [];
+
+        // Larger handle size on mobile/touch screens
+        const HANDLE_SIZE = window.innerWidth < 640 ? 12 : 8;
+
+        function getCurrentPage() {
+            return pages.find(p => p.id === currentPageId);
+        }
+
+        function autoFitCanvas() {
+            const containerWidth = Math.max(260, container.clientWidth - 8);
+            const containerHeight = Math.max(160, container.clientHeight - 8);
+            canvas.width = containerWidth;
+            canvas.height = containerHeight;
+            redrawCanvas();
+        }
+
+        const resizeObserver = new ResizeObserver(() => { autoFitCanvas(); });
+        resizeObserver.observe(container);
+
+        function toggleDrawerMobile() {
+            const drawer = document.getElementById('toolDrawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        const drawerPanels = {
+            pointer: `
+                <div class="p-2 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                    <i class="fa-solid fa-arrow-pointer text-purple-600 text-base mb-0.5"></i>
+                    <p class="text-[10px] sm:text-[11px] font-bold text-purple-900">Select Tool</p>
+                    <p class="text-[9px] text-slate-500 mt-0.5">Tap objects to select, drag handles to resize.</p>
+                </div>
+            `,
+            draw: `
+                <div class="p-2 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                    <i class="fa-solid fa-pen-nib text-purple-600 text-base mb-0.5"></i>
+                    <p class="text-[10px] sm:text-[11px] font-bold text-purple-900">Freehand Brush</p>
+                    <p class="text-[9px] text-slate-500 mt-0.5">Drag finger/mouse to draw.</p>
+                </div>
+            `,
+            elements: `
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">10 Shapes</span>
+                <div class="grid grid-cols-2 gap-1 max-h-[180px] overflow-y-auto pr-0.5">
+                    <button onclick="setShape('rect')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-square text-purple-600"></i><span>Rect</span></button>
+                    <button onclick="setShape('circle')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-circle text-purple-600"></i><span>Circle</span></button>
+                    <button onclick="setShape('triangle')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-caret-up text-purple-600"></i><span>Triangle</span></button>
+                    <button onclick="setShape('cross')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-plus text-purple-600"></i><span>Cross</span></button>
+                    <button onclick="setShape('star')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-star text-purple-600"></i><span>Star</span></button>
+                    <button onclick="setShape('heart')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-heart text-purple-600"></i><span>Heart</span></button>
+                    <button onclick="setShape('diamond')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-gem text-purple-600"></i><span>Diamond</span></button>
+                    <button onclick="setShape('hexagon')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-cube text-purple-600"></i><span>Hexagon</span></button>
+                    <button onclick="setShape('pentagon')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-shield text-purple-600"></i><span>Pentagon</span></button>
+                    <button onclick="setShape('bubble')" class="p-1.5 bg-slate-50 hover:bg-purple-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 flex items-center space-x-1"><i class="fa-solid fa-comment text-purple-600"></i><span>Bubble</span></button>
+                </div>
+            `,
+            text: `
+                <div class="space-y-1.5">
+                    <button onclick="promptTextAndAdd('Heading Title', 26)" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-2 rounded-xl text-left text-xs transition shadow-xs">
+                        + Add Heading
+                    </button>
+                    <button onclick="promptTextAndAdd('Subheading text...', 16)" class="w-full bg-slate-100 hover:bg-purple-50 text-slate-800 font-bold p-2 rounded-xl text-left text-xs transition border border-slate-200">
+                        + Add Subheading
+                    </button>
+                </div>
+            `,
+            uploads: `
+                <div class="space-y-1.5">
+                    <label class="block w-full border-2 border-dashed border-purple-300 hover:border-purple-500 bg-purple-50/50 p-2.5 rounded-xl text-center cursor-pointer transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-purple-600 text-base mb-0.5 block"></i>
+                        <span class="text-xs font-bold text-purple-900 block">Upload Image</span>
+                        <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    </label>
+                </div>
+            `
+        };
+
+        const headers = {
+            pointer: { title: 'Pointer Tool', desc: 'Select & move objects.' },
+            draw: { title: 'Freehand Draw', desc: 'Draw strokes on canvas.' },
+            elements: { title: 'Geometric Shapes', desc: 'Stamp shapes.' },
+            text: { title: 'Typography', desc: 'Add editable text.' },
+            uploads: { title: 'Image Uploads', desc: 'Insert images.' }
+        };
+
+        function switchTab(tabKey) {
+            activeTab = tabKey;
+            activeMode = tabKey;
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.className = 'nav-tab text-slate-400 hover:text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1';
+            });
+            document.getElementById(`tab-${tabKey}`).className = 'nav-tab text-purple-400 flex flex-col items-center space-y-0.5 transition w-full py-1';
+
+            document.getElementById('drawerHeader').innerHTML = `
+                <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider">${headers[tabKey].title}</h3>
+                <p class="text-[10px] text-slate-500">${headers[tabKey].desc}</p>
+            `;
+            document.getElementById('drawerOptions').innerHTML = drawerPanels[tabKey];
+            document.getElementById('activeToolName').textContent = headers[tabKey].title;
+            
+            if (tabKey !== 'pointer') {
+                selectedObjectIndex = null;
+                updateSelectionToolbars();
+                redrawCanvas();
+            }
+        }
+
+        function setShape(shape) {
+            activeShape = shape;
+            addShapeObject(shape);
+        }
+
+        function promptTextAndAdd(defaultVal, size) {
+            const txt = prompt("Enter text for canvas:", defaultVal);
+            if (txt) addTextObject(txt, size);
+        }
+
+        function addNewPage() {
+            const newId = pages.length > 0 ? Math.max(...pages.map(p => p.id)) + 1 : 1;
+            pages.push({ id: newId, objects: [], undoStack: [], redoStack: [] });
+            switchPage(newId);
+        }
+
+        function switchPage(pageId) {
+            currentPageId = pageId;
+            selectedObjectIndex = null;
+            updatePagesDock();
+            updateUI();
+            redrawCanvas();
+        }
+
+        function updatePagesDock() {
+            const dock = document.getElementById('pagesDock');
+            dock.innerHTML = '';
+            pages.forEach((page, index) => {
+                const isActive = (page.id === currentPageId);
+                const activeClass = isActive ? 'bg-purple-600 text-white border-purple-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200';
+                
+                dock.innerHTML += `
+                    <div onclick="switchPage(${page.id})" class="${activeClass} px-2.5 py-0.5 rounded-lg text-xs font-bold cursor-pointer flex items-center space-x-1 shrink-0 border">
+                        <span>P${index + 1}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function pushCanvasState(label = 'Action') {
+            const page = getCurrentPage();
+            const stateSnapshot = JSON.parse(JSON.stringify(page.objects));
+            page.undoStack.push({
+                objects: stateSnapshot,
+                label: label,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            });
+            page.redoStack = [];
+            updateUI();
+        }
+
+        function undo() {
+            const page = getCurrentPage();
+            if (page.undoStack.length <= 1) return;
+            const currentState = page.undoStack.pop();
+            page.redoStack.push(currentState);
+            page.objects = JSON.parse(JSON.stringify(page.undoStack[page.undoStack.length - 1].objects));
+            selectedObjectIndex = null;
+            updateSelectionToolbars();
+            redrawCanvas();
+            updateUI();
+        }
+
+        function redo() {
+            const page = getCurrentPage();
+            if (page.redoStack.length === 0) return;
+            const restoredState = page.redoStack.pop();
+            page.undoStack.push(restoredState);
+            page.objects = JSON.parse(JSON.stringify(restoredState.objects));
+            selectedObjectIndex = null;
+            updateSelectionToolbars();
+            redrawCanvas();
+            updateUI();
+        }
+
+        function clearCanvas() {
+            const page = getCurrentPage();
+            page.objects = [];
+            selectedObjectIndex = null;
+            updateSelectionToolbars();
+            pushCanvasState('Clear Page');
+            redrawCanvas();
+        }
+
+        function addTextObject(textVal, fontSize) {
+            const page = getCurrentPage();
+            const color = document.getElementById('colorPicker').value;
+            const newObj = {
+                type: 'text',
+                text: textVal,
+                x: canvas.width / 2 - 60,
+                y: canvas.height / 2,
+                fontSize: fontSize,
+                fontFamily: 'Plus Jakarta Sans',
+                bold: false,
+                italic: false,
+                color: color
+            };
+            page.objects.push(newObj);
+            selectedObjectIndex = page.objects.length - 1;
+            pushCanvasState(`Add Text`);
+            switchTab('pointer');
+            updateSelectionToolbars();
+            redrawCanvas();
+        }
+
+        function addShapeObject(shapeType) {
+            const page = getCurrentPage();
+            const color = document.getElementById('colorPicker').value;
+            const newObj = {
+                type: 'shape',
+                shape: shapeType,
+                x: canvas.width / 2 - 40,
+                y: canvas.height / 2 - 40,
+                width: 80,
+                height: 80,
+                color: color,
+                lineWidth: parseInt(document.getElementById('sizePicker').value)
+            };
+            page.objects.push(newObj);
+            selectedObjectIndex = page.objects.length - 1;
+            pushCanvasState(`Add Shape`);
+            switchTab('pointer');
+            updateSelectionToolbars();
+            redrawCanvas();
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const page = getCurrentPage();
+                    const w = Math.min(180, canvas.width * 0.6);
+                    const h = (img.height / img.width) * w;
+                    const newObj = {
+                        type: 'image',
+                        dataUrl: event.target.result,
+                        x: canvas.width / 2 - w / 2,
+                        y: canvas.height / 2 - h / 2,
+                        width: w,
+                        height: h
+                    };
+                    page.objects.push(newObj);
+                    selectedObjectIndex = page.objects.length - 1;
+                    pushCanvasState(`Upload Image`);
+                    switchTab('pointer');
+                    updateSelectionToolbars();
+                    redrawCanvas();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveProjectFile() {
+            const projectData = { version: "1.0", pages: pages, currentPageId: currentPageId };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
+            const anchor = document.createElement('a');
+            anchor.setAttribute("href", dataStr);
+            anchor.setAttribute("download", "CanvaStudio_Project.json");
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        }
+
+        function loadProjectFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const project = JSON.parse(e.target.result);
+                    if (project.pages && project.pages.length > 0) {
+                        pages = project.pages;
+                        currentPageId = project.currentPageId || pages[0].id;
+                        selectedObjectIndex = null;
+                        updatePagesDock();
+                        updateUI();
+                        redrawCanvas();
+                        alert("Project loaded!");
+                    }
+                } catch (err) { alert("Invalid project file."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadCanvasImage() {
+            const link = document.createElement('a');
+            link.download = `CanvaStudio_Page${currentPageId}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function getObjectBounds(obj) {
+            if (obj.type === 'text') {
+                ctx.font = `${obj.italic ? 'italic ' : ''}${obj.bold ? 'bold ' : ''}${obj.fontSize}px '${obj.fontFamily}', sans-serif`;
+                const metrics = ctx.measureText(obj.text);
+                const w = metrics.width || 60;
+                const h = obj.fontSize || 18;
+                return { x: obj.x, y: obj.y - h, w: w, h: h };
+            }
+            return { x: obj.x, y: obj.y, w: obj.width || 80, h: obj.height || 80 };
+        }
+
+        function getHandles(bounds) {
+            const { x, y, w, h } = bounds;
+            return {
+                tl: { x: x, y: y },
+                tr: { x: x + w, y: y },
+                bl: { x: x, y: y + h },
+                br: { x: x + w, y: y + h }
+            };
+        }
+
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const page = getCurrentPage();
+
+            page.objects.forEach((obj, idx) => {
+                ctx.save();
+                if (obj.type === 'text') {
+                    ctx.font = `${obj.italic ? 'italic ' : ''}${obj.bold ? 'bold ' : ''}${obj.fontSize}px '${obj.fontFamily}', sans-serif`;
+                    ctx.fillStyle = obj.color;
+                    ctx.fillText(obj.text, obj.x, obj.y);
+                } else if (obj.type === 'shape') {
+                    ctx.strokeStyle = obj.color;
+                    ctx.lineWidth = obj.lineWidth || 3;
+                    drawShapePath(obj.shape, obj.x, obj.y, obj.width, obj.height);
+                    ctx.stroke();
+                } else if (obj.type === 'image' && obj.imgElement) {
+                    ctx.drawImage(obj.imgElement, obj.x, obj.y, obj.width, obj.height);
+                } else if (obj.type === 'image' && !obj.imgElement) {
+                    const img = new Image();
+                    img.src = obj.dataUrl;
+                    obj.imgElement = img;
+                    img.onload = () => redrawCanvas();
+                }
+
+                if (idx === selectedObjectIndex) {
+                    let bounds = getObjectBounds(obj);
+                    ctx.strokeStyle = '#7d2ae8';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
+
+                    const handles = getHandles(bounds);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#7d2ae8';
+                    ctx.lineWidth = 1.5;
+
+                    for (let key in handles) {
+                        let h = handles[key];
+                        ctx.fillRect(h.x - HANDLE_SIZE / 2, h.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+                        ctx.strokeRect(h.x - HANDLE_SIZE / 2, h.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE);
+                    }
+                }
+                ctx.restore();
+            });
+        }
+
+        function arrangeLayer(direction) {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            const idx = selectedObjectIndex;
+            if (direction === 'forward' && idx < page.objects.length - 1) {
+                const temp = page.objects[idx];
+                page.objects[idx] = page.objects[idx + 1];
+                page.objects[idx + 1] = temp;
+                selectedObjectIndex = idx + 1;
+            } else if (direction === 'backward' && idx > 0) {
+                const temp = page.objects[idx];
+                page.objects[idx] = page.objects[idx - 1];
+                page.objects[idx - 1] = temp;
+                selectedObjectIndex = idx - 1;
+            }
+            pushCanvasState('Arrange Layer');
+            redrawCanvas();
+        }
+
+        function deleteSelectedObject() {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            page.objects.splice(selectedObjectIndex, 1);
+            selectedObjectIndex = null;
+            updateSelectionToolbars();
+            pushCanvasState('Delete Object');
+            redrawCanvas();
+        }
+
+        function updateSelectionToolbars() {
+            const page = getCurrentPage();
+            const textToolbar = document.getElementById('textFormattingBar');
+            const layerToolbar = document.getElementById('layerArrangeBar');
+
+            if (selectedObjectIndex !== null && page.objects[selectedObjectIndex]) {
+                const obj = page.objects[selectedObjectIndex];
+                layerToolbar.classList.remove('hidden');
+                if (obj.type === 'text') {
+                    textToolbar.classList.remove('hidden');
+                    document.getElementById('fontFamilySelect').value = obj.fontFamily || 'Plus Jakarta Sans';
+                } else {
+                    textToolbar.classList.add('hidden');
+                }
+            } else {
+                textToolbar.classList.add('hidden');
+                layerToolbar.classList.add('hidden');
+            }
+        }
+
+        function updateSelectedTextFont() {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            const obj = page.objects[selectedObjectIndex];
+            if (obj.type === 'text') {
+                obj.fontFamily = document.getElementById('fontFamilySelect').value;
+                redrawCanvas();
+            }
+        }
+
+        function toggleTextBold() {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            const obj = page.objects[selectedObjectIndex];
+            if (obj.type === 'text') {
+                obj.bold = !obj.bold;
+                redrawCanvas();
+            }
+        }
+
+        function toggleTextItalic() {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            const obj = page.objects[selectedObjectIndex];
+            if (obj.type === 'text') {
+                obj.italic = !obj.italic;
+                redrawCanvas();
+            }
+        }
+
+        function editSelectedTextContent() {
+            const page = getCurrentPage();
+            if (selectedObjectIndex === null) return;
+            const obj = page.objects[selectedObjectIndex];
+            if (obj.type === 'text') {
+                const newText = prompt("Edit text content:", obj.text);
+                if (newText !== null) {
+                    obj.text = newText;
+                    pushCanvasState('Edit Text');
+                    redrawCanvas();
+                }
+            }
+        }
+
+        function checkHandleClick(bounds, mouseX, mouseY) {
+            const handles = getHandles(bounds);
+            for (let key in handles) {
+                let h = handles[key];
+                if (Math.abs(mouseX - h.x) <= HANDLE_SIZE * 1.5 && Math.abs(mouseY - h.y) <= HANDLE_SIZE * 1.5) {
+                    return key;
+                }
+            }
+            return null;
+        }
+
+        // Unified Touch & Mouse Inputs
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handlePointerDown(e) {
+            const coords = getCanvasCoords(e);
+            const mouseX = coords.x, mouseY = coords.y;
+            const page = getCurrentPage();
+            startX = mouseX;
+            startY = mouseY;
+
+            if (activeMode === 'pointer') {
+                if (selectedObjectIndex !== null) {
+                    const selObj = page.objects[selectedObjectIndex];
+                    const bounds = getObjectBounds(selObj);
+                    const handleKey = checkHandleClick(bounds, mouseX, mouseY);
+                    if (handleKey) {
+                        isResizing = true;
+                        resizeHandleType = handleKey;
+                        return;
+                    }
+                }
+
+                selectedObjectIndex = null;
+                for (let i = page.objects.length - 1; i >= 0; i--) {
+                    let bounds = getObjectBounds(page.objects[i]);
+                    if (mouseX >= bounds.x - 6 && mouseX <= bounds.x + bounds.w + 6 &&
+                        mouseY >= bounds.y - 6 && mouseY <= bounds.y + bounds.h + 6) {
+                        selectedObjectIndex = i;
+                        isDragging = true;
+                        dragOffsetX = mouseX - page.objects[i].x;
+                        dragOffsetY = mouseY - page.objects[i].y;
+                        break;
+                    }
+                }
+                updateSelectionToolbars();
+                redrawCanvas();
+            } else if (activeMode === 'draw') {
+                isDrawing = true;
+                currentDrawPath = [{ x: mouseX, y: mouseY }];
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isResizing && !isDragging && !isDrawing) return;
+            const coords = getCanvasCoords(e);
+            const mouseX = coords.x, mouseY = coords.y;
+            const page = getCurrentPage();
+
+            if (isResizing && selectedObjectIndex !== null) {
+                const obj = page.objects[selectedObjectIndex];
+                if (obj.type === 'image' || obj.type === 'shape') {
+                    if (resizeHandleType.includes('r')) obj.width = Math.max(20, mouseX - obj.x);
+                    if (resizeHandleType.includes('b')) obj.height = Math.max(20, mouseY - obj.y);
+                    if (resizeHandleType.includes('l')) {
+                        let newW = Math.max(20, (obj.x + obj.width) - mouseX);
+                        obj.x = mouseX;
+                        obj.width = newW;
+                    }
+                    if (resizeHandleType.includes('t')) {
+                        let newH = Math.max(20, (obj.y + obj.height) - mouseY);
+                        obj.y = mouseY;
+                        obj.height = newH;
+                    }
+                } else if (obj.type === 'text') {
+                    if (resizeHandleType.includes('r') || resizeHandleType.includes('b')) {
+                        obj.fontSize = Math.max(10, Math.min(120, obj.fontSize + (mouseX - startX) * 0.1));
+                        startX = mouseX;
+                    }
+                }
+                redrawCanvas();
+            } else if (isDragging && selectedObjectIndex !== null) {
+                page.objects[selectedObjectIndex].x = mouseX - dragOffsetX;
+                page.objects[selectedObjectIndex].y = mouseY - dragOffsetY;
+                redrawCanvas();
+            } else if (isDrawing && activeMode === 'draw') {
+                currentDrawPath.push({ x: mouseX, y: mouseY });
+                redrawCanvas();
+                ctx.strokeStyle = document.getElementById('colorPicker').value;
+                ctx.lineWidth = document.getElementById('sizePicker').value;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(currentDrawPath[0].x, currentDrawPath[0].y);
+                for (let pt of currentDrawPath) ctx.lineTo(pt.x, pt.y);
+                ctx.stroke();
+            }
+        }
+
+        function handlePointerUp() {
+            if (isResizing) {
+                isResizing = false;
+                resizeHandleType = null;
+                pushCanvasState('Resize Object');
+            } else if (isDragging) {
+                isDragging = false;
+                pushCanvasState('Move Object');
+            } else if (isDrawing) {
+                isDrawing = false;
+                if (currentDrawPath.length > 1) {
+                    pushCanvasState('Freehand Brush Stroke');
+                }
+                currentDrawPath = [];
+            }
+        }
+
+        // Mouse Listeners
+        canvas.addEventListener('mousedown', handlePointerDown);
+        canvas.addEventListener('mousemove', handlePointerMove);
+        canvas.addEventListener('mouseup', handlePointerUp);
+
+        // Touch Listeners (Mobile Support)
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointerDown(e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointerMove(e); }, { passive: false });
+        canvas.addEventListener('touchend', (e) => { handlePointerUp(); });
+
+        function drawShapePath(shape, x, y, w, h) {
+            ctx.beginPath();
+            if (shape === 'rect') ctx.rect(x, y, w, h);
+            else if (shape === 'circle') ctx.arc(x + w/2, y + h/2, Math.abs(w/2), 0, 2 * Math.PI);
+            else if (shape === 'triangle') { ctx.moveTo(x + w/2, y); ctx.lineTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.closePath(); }
+            else if (shape === 'cross') {
+                const tw = w/3, th = h/3;
+                ctx.moveTo(x+tw, y); ctx.lineTo(x+2*tw, y); ctx.lineTo(x+2*tw, y+th); ctx.lineTo(x+w, y+th);
+                ctx.lineTo(x+w, y+2*th); ctx.lineTo(x+2*tw, y+2*th); ctx.lineTo(x+2*tw, y+h); ctx.lineTo(x+tw, y+h);
+                ctx.lineTo(x+tw, y+2*th); ctx.lineTo(x, y+2*th); ctx.lineTo(x, y+th); ctx.lineTo(x+tw, y+th); ctx.closePath();
+            } else {
+                ctx.rect(x, y, w, h);
+            }
+        }
+
+        function updateUI() {
+            const page = getCurrentPage();
+            if (page.undoStack.length === 0) {
+                pushCanvasState('Initial Base');
+            }
+
+            document.getElementById('undoBtn').disabled = (page.undoStack.length <= 1);
+            document.getElementById('redoBtn').disabled = (page.redoStack.length === 0);
+            document.getElementById('topBadge').textContent = `Top: ${page.undoStack.length}`;
+
+            const inspector = document.getElementById('stackInspector');
+            let html = '';
+            for (let i = page.undoStack.length - 1; i >= 0; i--) {
+                const item = page.undoStack[i];
+                const isTop = (i === page.undoStack.length - 1);
+                const cardClass = isTop ? 'border-2 border-amber-500 bg-amber-950/60 shadow-md animate-pop' : 'border border-slate-800 bg-slate-900 text-slate-400';
+                const badge = isTop ? '<span class="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">TOP</span>' : `<span class="text-[10px] font-mono text-slate-500">[${i}]</span>`;
+
+                html += `
+                    <div class="${cardClass} p-2 rounded-xl flex justify-between items-center text-xs transition">
+                        <div>
+                            <span class="font-bold text-white block text-[11px]">${item.label}</span>
+                            <span class="text-[9px] font-mono text-amber-200/60">${item.timestamp}</span>
+                        </div>
+                        <div>${badge}</div>
+                    </div>
+                `;
+            }
+            inspector.innerHTML = html;
+        }
+
+        function toggleStackInspector() {
+            document.getElementById('stackInspectorPanel').classList.toggle('hidden');
+        }
+
+        document.getElementById('colorPicker').addEventListener('input', (e) => {
+            document.getElementById('colorHex').textContent = e.target.value;
+            if (selectedObjectIndex !== null) {
+                const page = getCurrentPage();
+                page.objects[selectedObjectIndex].color = e.target.value;
+                redrawCanvas();
+            }
+        });
+        document.getElementById('sizePicker').addEventListener('input', (e) => {
+            document.getElementById('sizeVal').textContent = `${e.target.value}px`;
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+            else if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+        });
+
+        window.addEventListener('load', () => {
+            updatePagesDock();
+            switchTab('pointer');
+            pushCanvasState('Initial Base');
+            autoFitCanvas();
+        });
+    </script>
+</body>
+</html>
